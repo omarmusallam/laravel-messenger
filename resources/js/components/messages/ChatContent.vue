@@ -1,137 +1,328 @@
 <template>
-    <div class="chat-body hide-scrollbar flex-1 h-100">
-        <div class="chat-body-inner">
-            <div class="py-6 py-lg-12" id="chat-body">
-                <div v-for="message in $root.messages" v-bind:key="message.id" class="message" :class="{'message-out': message.user_id == $root.userId}">
-                    <a href="#" data-bs-toggle="modal" data-bs-target="#modal-profile" class="avatar avatar-responsive">
-                        <img class="avatar-img" v-bind:src="message.user.avatar_url" alt="">
-                    </a>
+    <div class="chat-content-shell flex-fill overflow-auto px-4 px-lg-5 py-4" id="chat-body">
+        <div v-if="$root.requestError && !$root.loadingMessages" class="alert alert-warning d-flex align-items-center justify-content-between gap-3">
+            <span>{{ $root.requestError }}</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @click="$root.retryCurrentView()">
+                Retry
+            </button>
+        </div>
 
-                    <div class="message-inner">
-                        <div class="message-body">
-                            <div class="message-content">
-                                <div class="message-text" v-if="message.type=='text'">
-                                    <p>{{ message.body }}</p>
-                                </div>
-                                <div class="message-gallery" v-if="message.type=='attachment' && message.body.mimetype.match(/image\/.+/)">
-                                    <div class="row gx-3">
-                                        <div class="col">
-                                            <img class="img-fluid rounded" v-bind:src="'/storage/'+message.body.file_path" data-action="zoom" alt="">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="message-text" v-if="message.type=='attachment' && !message.body.mimetype.match(/image\/.+/)">
-                                    <div class="row align-items-center gx-4">
-                                        <div class="col-auto">
-                                            <a v-bind:href="'/storage/'+message.body.file_path" class="avatar avatar-sm">
-                                                <div class="avatar-text bg-white text-primary">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
-                                                </div>
-                                            </a>
-                                        </div>
-                                        <div class="col overflow-hidden">
-                                            <h6 class="text-truncate text-reset">
-                                                <a href="#" class="text-reset">{{ message.body.file_name }}</a>
-                                            </h6>
-                                            <ul class="list-inline text-uppercase extra-small opacity-75 mb-0">
-                                                <li class="list-inline-item">{{ Number(message.body.file_size / 1024).toFixed(2) }} KB</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
+        <div v-if="$root.loadingMessages" class="text-muted small py-4">Loading messages...</div>
 
-                                <!-- Dropdown -->
-                                <div class="message-action">
-                                    <div class="dropdown">
-                                        <a class="icon text-muted" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-more-vertical"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                                        </a>
+        <div v-else-if="!$root.messages.length" class="text-center text-muted py-5">
+            No messages yet. This conversation is ready for your first demo message.
+        </div>
 
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                                    <span class="me-auto">Edit</span>
-                                                    <div class="icon">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-edit-3"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                                    </div>
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                                    <span class="me-auto">Reply</span>
-                                                    <div class="icon">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-corner-up-left"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-                                                    </div>
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <hr class="dropdown-divider">
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center text-danger" href="#">
-                                                    <span class="me-auto" @click.prevent="$root.deleteMessage(message, 'me')">Delete for me</span>
-                                                    <div class="icon">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                                    </div>
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center text-danger" href="#">
-                                                    <span class="me-auto" @click.prevent="$root.deleteMessage(message, 'all')">Delete For everyone</span>
-                                                    <div class="icon">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                                    </div>
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
+        <div v-else class="d-flex flex-column gap-3">
+            <article
+                v-for="message in $root.messages"
+                :key="message.id"
+                class="message-row"
+                :class="{ mine: Number(message.user_id) === $root.userId }"
+            >
+                <div class="message-bubble-wrap">
+                    <div class="message-meta-strip">
+                        <span class="message-author">
+                            {{ message.user?.name || 'User' }}
+                        </span>
+                        <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
+                    </div>
+
+                    <div class="message-bubble">
+                        <div v-if="message.type === 'attachment' && isImage(message)" class="message-attachment">
+                            <button type="button" class="image-preview-trigger" @click="previewAttachment(message)">
+                                <img class="img-fluid rounded-4 message-image" :src="fileUrl(message)" :alt="message.body?.file_name || 'Attachment'">
+                            </button>
+                        </div>
+
+                        <div v-else-if="message.type === 'attachment'" class="attachment-card" :class="{ pdf: isPdf(message) }">
+                            <div class="attachment-card-icon">
+                                <span>{{ fileExtension(message) }}</span>
+                            </div>
+                            <div class="attachment-card-copy">
+                                <div class="fw-semibold text-break">{{ message.body?.file_name }}</div>
+                                <div class="small text-muted mb-3">{{ fileSize(message) }}</div>
+                                <div class="attachment-card-actions">
+                                    <button v-if="isPdf(message)" type="button" class="attachment-action-btn" @click="previewAttachment(message)">
+                                        Preview
+                                    </button>
+                                    <a :href="fileUrl(message)" class="attachment-action-btn secondary" target="_blank" rel="noopener">
+                                        Download
+                                    </a>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="message-footer">
-                            <span class="extra-small text-muted">{{ $root.moment(message.created_at).fromNow() }}</span>
-                        </div>
+                        <p v-else class="message-text mb-0">{{ message.body }}</p>
+                    </div>
+
+                    <div class="message-tools">
+                        <button type="button" class="message-action-btn" @click="$root.deleteMessage(message, 'me')">
+                            Hide For Me
+                        </button>
+                        <button
+                            v-if="Number(message.user_id) === $root.userId"
+                            type="button"
+                            class="message-action-btn danger"
+                            @click="$root.deleteMessage(message, 'all')"
+                        >
+                            Delete For Everyone
+                        </button>
                     </div>
                 </div>
-            </div>
+            </article>
         </div>
     </div>
 </template>
 
 <script>
 export default {
-    props: [
-        'conversation'
-    ],
-    data() {
-        return {
-            fetched: 0,
-        }
+    props: {
+        conversation: {
+            type: Object,
+            required: true,
+        },
     },
-    mounted() {
-        if (this.conversation) {
-            fetch(`/api/conversations/${this.conversation.id}/messages`)
-                .then(response => response.json())
-                .then(json => {
-                    this.$root.messages = json.messages.data.reverse();
-                    let container = document.querySelector('#chat-body');
-                    container.scrollTop = container.scrollHeight;
-                });
-        }
+    watch: {
+        conversation: {
+            immediate: true,
+            handler(conversation) {
+                if (conversation) {
+                    this.$root.loadMessages(conversation);
+                }
+            },
+        },
     },
-    updated() {
-        if (this.conversation && this.fetched != this.conversation.id) {
-            fetch(`/api/conversations/${this.conversation.id}/messages`)
-                .then(response => response.json())
-                .then(json => {
-                    this.$root.messages = json.messages.data.reverse();
-                    this.fetched = this.conversation.id;
+    methods: {
+        formatMessageTime(value) {
+            return this.$root.moment(value).calendar();
+        },
+        isImage(message) {
+            return Boolean(message.body?.mimetype && message.body.mimetype.match(/image\/.+/));
+        },
+        isPdf(message) {
+            return message.body?.mimetype === "application/pdf";
+        },
+        fileUrl(message) {
+            return `/storage/${message.body?.file_path || ''}`;
+        },
+        fileSize(message) {
+            const size = Number(message.body?.file_size || 0) / 1024;
+            return `${size.toFixed(2)} KB`;
+        },
+        fileExtension(message) {
+            const fileName = message.body?.file_name || "FILE";
+            if (!fileName.includes(".")) {
+                return "FILE";
+            }
 
-                    let container = document.querySelector('#chat-body');
-                    container.scrollTop = container.scrollHeight;
-                });
-        }
+            return fileName.split(".").pop().slice(0, 4).toUpperCase();
+        },
+        previewAttachment(message) {
+            const kind = this.isImage(message) ? "image" : (this.isPdf(message) ? "pdf" : "file");
+            if (kind === "file") {
+                window.open(this.fileUrl(message), "_blank", "noopener");
+                return;
+            }
+
+            this.$root.openMediaPreview({
+                kind,
+                url: this.fileUrl(message),
+                name: message.body?.file_name || "Attachment",
+                label: kind === "image" ? "Image preview" : "PDF preview",
+            });
+        },
+    },
+};
+</script>
+
+<style scoped>
+.chat-content-shell {
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.98));
+}
+
+.message-row {
+    display: flex;
+    padding-bottom: 0.25rem;
+}
+
+.message-row.mine {
+    justify-content: flex-end;
+}
+
+.message-bubble-wrap {
+    max-width: min(78%, 720px);
+}
+
+.message-meta-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.55rem;
+    padding-inline: 0.25rem;
+}
+
+.message-bubble {
+    border-radius: 1.5rem;
+    padding: 1.1rem 1.15rem;
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+}
+
+.message-row.mine .message-bubble {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: #fff;
+}
+
+.message-author {
+    color: #334155;
+    font-size: 0.84rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.message-row.mine .message-author,
+.message-row.mine .message-time {
+    color: #1d4ed8;
+}
+
+.message-text {
+    white-space: pre-wrap;
+    line-height: 1.8;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #0f172a;
+}
+
+.attachment-card {
+    min-width: 290px;
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 0.95rem;
+    align-items: center;
+}
+
+.attachment-card-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.attachment-card.pdf .attachment-card-icon {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.attachment-card-copy {
+    min-width: 0;
+}
+
+.attachment-card-copy .text-muted {
+    color: #64748b !important;
+}
+
+.attachment-card-actions {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.attachment-action-btn {
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    background: rgba(219, 234, 254, 0.95);
+    color: #1d4ed8;
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.attachment-action-btn.secondary {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: rgba(148, 163, 184, 0.18);
+}
+
+.message-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.05);
+}
+
+.message-time {
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.79rem;
+}
+
+.message-action-btn {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #eef2ff;
+    color: #1e3a8a;
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 0.48rem 0.82rem;
+    border-radius: 999px;
+    line-height: 1;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.message-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(37, 99, 235, 0.12);
+}
+
+.message-action-btn.danger {
+    border-color: rgba(220, 38, 38, 0.12);
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.image-preview-trigger {
+    border: none;
+    background: transparent;
+    padding: 0;
+    display: block;
+}
+
+.message-image {
+    max-width: min(520px, 100%);
+    border-radius: 1.25rem !important;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 767.98px) {
+    .message-bubble-wrap {
+        max-width: 100%;
+    }
+
+    .message-meta-strip {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .message-tools {
+        width: 100%;
+        border-radius: 1rem;
+        justify-content: flex-start;
     }
 }
-</script>
+</style>

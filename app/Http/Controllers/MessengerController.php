@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Conversation;
+use App\Models\Recipient;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class MessengerController extends Controller
@@ -15,10 +15,18 @@ class MessengerController extends Controller
 
         $friends = User::where('id', '<>', $user->id)
             ->orderBy('name')
-            ->paginate();
+            ->get(['id', 'name', 'email']);
 
         return view('messenger', [
             'friends' => $friends,
+            'selectedConversationId' => $id ? (int) $id : null,
+            'stats' => [
+                'conversations' => $user->conversations()->count(),
+                'contacts' => $friends->count(),
+                'unread' => Recipient::where('user_id', $user->id)
+                    ->whereNull('read_at')
+                    ->count(),
+            ],
         ]);
     }
 }

@@ -1,78 +1,83 @@
 <template>
-    <div class="chat-header border-bottom py-4 py-lg-7">
-        <div class="row align-items-center">
+    <div class="chat-header-shell border-bottom px-4 px-lg-5 py-4">
+        <div class="d-flex align-items-center gap-3">
+            <img :src="$root.conversationAvatar(conversation)" :alt="$root.conversationTitle(conversation)" class="header-avatar">
 
-            <!-- Mobile: close -->
-            <div class="col-2 d-xl-none">
-                <a class="icon icon-lg text-muted" href="#" data-toggle-chat="">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-left"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </a>
-            </div>
-            <!-- Mobile: close -->
-
-            <!-- Content -->
-            <div class="col-8 col-xl-12">
-                <div class="row align-items-center text-center text-xl-start">
-                    <!-- Title -->
-                    <div class="col-12 col-xl-6">
-                        <div class="row align-items-center gx-5">
-                            <div class="col-auto">
-                                <div class="avatar avatar-online d-none d-xl-inline-block">
-                                    <img class="avatar-img" id="chat-avatar" v-bind:src="conversation.participants[0].avatar_url" alt="">
-                                </div>
-                            </div>
-
-                            <div class="col overflow-hidden">
-                                <h5 class="text-truncate" id="chat-name">{{ conversation.participants[0].name }}</h5>
-                                <p v-if="conversation.participants[0].isTyping" class="text-truncate">is typing<span class='typing-dots'><span>.</span><span>.</span><span>.</span></span></p>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Title -->
-
-                    <!-- Toolbar -->
-                    <div class="col-xl-6 d-none d-xl-block">
-                        <div class="row align-items-center justify-content-end gx-6">
-                            <div class="col-auto">
-                                <a href="#" class="icon icon-lg text-muted" data-bs-toggle="offcanvas" data-bs-target="#offcanvas-more" aria-controls="offcanvas-more">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-more-horizontal"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                </a>
-                            </div>
-
-                            <div class="col-auto">
-                                <div class="avatar-group">
-                                    <a href="#" class="avatar avatar-sm" data-bs-toggle="modal" data-bs-target="#modal-user-profile">
-                                        <img class="avatar-img" src="assets/img/avatars/2.jpg" alt="#">
-                                    </a>
-
-                                    <a href="#" class="avatar avatar-sm" data-bs-toggle="modal" data-bs-target="#modal-profile">
-                                        <img class="avatar-img" src="assets/img/avatars/1.jpg" alt="#">
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Toolbar -->
+            <div class="min-w-0 flex-fill">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <h2 class="h4 mb-0 text-truncate">{{ $root.conversationTitle(conversation) }}</h2>
+                    <span class="badge rounded-pill bg-light text-secondary border">{{ conversation.type === 'group' ? 'Group chat' : 'Direct chat' }}</span>
                 </div>
+                <p class="text-muted mb-0 mt-1 small">{{ $root.conversationPresence(conversation) }}</p>
             </div>
-            <!-- Content -->
 
-            <!-- Mobile: more -->
-            <div class="col-2 d-xl-none text-end">
-                <a href="#" class="icon icon-lg text-muted" data-bs-toggle="offcanvas" data-bs-target="#offcanvas-more" aria-controls="offcanvas-more">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-more-vertical"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            <div class="d-flex align-items-center gap-2 header-actions">
+                <button type="button" class="header-action-btn" @click="$root.copyConversationLink(conversation)">
+                    Copy link
+                </button>
+                <a :href="$root.conversationUrl(conversation)" class="header-action-btn">
+                    Direct link
                 </a>
             </div>
-            <!-- Mobile: more -->
-
         </div>
+        <p v-if="$root.copyStatus" class="small text-success mt-3 mb-0">{{ $root.copyStatus }}</p>
     </div>
 </template>
 
 <script>
 export default {
-    props: [
-        "conversation"
-    ]
-}
+    props: {
+        conversation: {
+            type: Object,
+            required: true,
+        },
+    },
+};
 </script>
+
+<style scoped>
+.header-avatar {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 999px;
+    object-fit: cover;
+}
+
+.chat-header-shell h2 {
+    color: #0f172a;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.chat-header-shell p {
+    color: #64748b !important;
+    font-size: 0.95rem;
+}
+
+.header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.header-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 106px;
+    padding: 0.68rem 1rem;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.header-action-btn:hover {
+    border-color: rgba(14, 165, 233, 0.36);
+    background: #eff6ff;
+    color: #0369a1;
+}
+</style>

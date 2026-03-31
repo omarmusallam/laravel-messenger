@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -46,12 +45,12 @@ class User extends Authenticatable
         'avatar_url',
     ];
 
-    public function z()
+    public function conversations()
     {
         return $this->belongsToMany(Conversation::class, 'participants')
-            ->latest('last_message_id')
             ->withPivot([
-                'role', 'joined_at'
+                'joined_at',
+                'role',
             ]);
     }
 
@@ -64,7 +63,8 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Message::class, 'recipients')
             ->withPivot([
-                'read_at', 'deleted_at',
+                'read_at',
+                'deleted_at',
             ]);
     }
 

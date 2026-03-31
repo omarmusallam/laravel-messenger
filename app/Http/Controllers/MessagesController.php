@@ -6,7 +6,6 @@ use App\Events\MessageCreated;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Recipient;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,10 +62,14 @@ class MessagesController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            // 'message' => [Rule::requiredIf(function() use ($request) {
-            //     return !$request->hasFile('attachment');
-            // }), 'string'],
-            // 'attachment' => ['file'],
+            'message' => [
+                Rule::requiredIf(function () use ($request) {
+                    return !$request->hasFile('attachment');
+                }),
+                'nullable',
+                'string',
+            ],
+            'attachment' => ['nullable', 'file'],
             'conversation_id' => [
                 Rule::requiredIf(function() use ($request) {
                     return !$request->input('user_id');
@@ -88,18 +91,23 @@ class MessagesController extends Controller
         $conversation_id = $request->post('conversation_id');
         $user_id = $request->post('user_id');
 
+        if ($user_id && (int) $user_id === (int) $user->id) {
+            return response()->json([
+                'message' => 'You cannot start a conversation with yourself.',
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
             if ($conversation_id) {
                 $conversation = $user->conversations()->findOrFail($conversation_id);
             } else {
-
                 $conversation = Conversation::where('type', '=', 'peer')
                     ->whereHas('participants', function ($builder) use ($user_id, $user) {
-                    $builder->join('participants as participants2', 'participants2.conversation_id', '=', 'participants.conversation_id')
+                        $builder->join('participants as participants2', 'participants2.conversation_id', '=', 'participants.conversation_id')
                             ->where('participants.user_id', '=', $user_id)
                             ->where('participants2.user_id', '=', $user->id);
-                })->first();
+                    })->first();
 
                 if (!$conversation) {
                     $conversation = Conversation::create([
@@ -108,11 +116,16 @@ class MessagesController extends Controller
                     ]);
 
                     $conversation->participants()->attach([
-                        $user->id => ['joined_at' => now()], 
-                        $user_id => ['joined_at' => now()],
+                        $user->id => [
+                            'joined_at' => now(),
+                            'role' => 'admin',
+                        ],
+                        $user_id => [
+                            'joined_at' => now(),
+                            'role' => 'member',
+                        ],
                     ]);
                 }
-
             }
 
             $type = 'text';
@@ -194,22 +207,44 @@ class MessagesController extends Controller
     public function destroy(Request $request, $id)
     {
         $user = Auth::user();
-        
-        $user->sentMessages()
-            ->where('id', '=', $id)
-            ->update([
+
+        $target = $request->input('target', 'me');
+
+        if (!in_array($target, ['me', 'all'], true)) {
+            return response()->json([
+                'message' => 'Invalid target',
+            ], 422);
+        }
+
+        $message = Message::query()
+            ->whereKey($id)
+            ->where(function ($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->orWhereHas('recipients', function ($recipientQuery) use ($user) {
+                        $recipientQuery->where('users.id', $user->id);
+                    });
+            })
+            ->firstOrFail();
+
+        if ($target === 'all') {
+            abort_unless((int) $message->user_id === (int) $user->id, 403);
+
+            $message->delete();
+
+            Recipient::where('message_id', $id)->delete();
+
+            return [
+                'message' => 'deleted',
+            ];
+        }
+
+        if ((int) $message->user_id === (int) $user->id) {
+            $message->update([
                 'deleted_at' => Carbon::now(),
             ]);
-
-        if ($request->target == 'me') {
-
-            Recipient::where([
-                'user_id' => $user->id,
-                'message_id' => $id,
-            ])->delete();
-
         } else {
             Recipient::where([
+                'user_id' => $user->id,
                 'message_id' => $id,
             ])->delete();
         }

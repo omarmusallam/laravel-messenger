@@ -20,7 +20,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Route::middleware('auth:sanctum')->group(function() {
+Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('conversations', [ConversationsController::class, 'index']);
     Route::get('conversations/{conversation}', [ConversationsController::class, 'show']);
@@ -34,6 +34,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     Route::post('messages', [MessagesController::class, 'store'])
         ->name('api.messages.store');
     Route::delete('messages/{id}', [MessagesController::class, 'destroy']);
-// });
-
+});
 

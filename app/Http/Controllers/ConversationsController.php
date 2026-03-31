@@ -24,6 +24,8 @@ class ConversationsController extends Controller
                         ->whereNull('read_at');
                 }
             ])
+            ->orderByDesc('conversations.last_message_id')
+            ->orderByDesc('conversations.updated_at')
             ->paginate();
     }
 
@@ -50,8 +52,20 @@ class ConversationsController extends Controller
             'user_id' => ['required', 'int', 'exists:users,id'],
         ]);
 
-        $conversation->participants()->attach($request->post('user_id'), [
-            'joined_at' => Carbon::now(),
+        abort_unless(
+            $conversation->participants()->where('users.id', Auth::id())->exists(),
+            403
+        );
+
+        $conversation->participants()->syncWithoutDetaching([
+            $request->post('user_id') => [
+                'joined_at' => Carbon::now(),
+                'role' => 'member',
+            ],
+        ]);
+
+        return response()->json([
+            'message' => 'Participant added',
         ]);
     }
 
@@ -61,11 +75,25 @@ class ConversationsController extends Controller
             'user_id' => ['required', 'int', 'exists:users,id'],
         ]);
 
+        abort_unless(
+            $conversation->participants()->where('users.id', Auth::id())->exists(),
+            403
+        );
+
         $conversation->participants()->detach($request->post('user_id'));
+
+        return response()->json([
+            'message' => 'Participant removed',
+        ]);
     }
 
     public function markAsRead($id)
     {
+        abort_unless(
+            Auth::user()->conversations()->whereKey($id)->exists(),
+            404
+        );
+
         Recipient::where('user_id', '=', Auth::id())
             ->whereNull('read_at')
             ->whereRaw('message_id IN (

@@ -1,81 +1,118 @@
 <template>
-    <div class="container py-8">
-        <!-- Title -->
-        <div class="mb-8">
-            <h2 class="fw-bold m-0">Chats</h2>
+    <div class="chat-list-shell flex-fill overflow-auto px-4 pb-4">
+        <div v-if="$root.requestError" class="alert alert-warning mt-3 mb-0">
+            {{ $root.requestError }}
         </div>
 
-        <!-- Search -->
-        <div class="mb-6">
-            <form action="#">
-                <div class="input-group">
-                    <div class="input-group-text">
-                        <div class="icon icon-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        </div>
-                    </div>
+        <div v-if="$root.loadingConversations" class="text-muted small py-4">
+            Loading conversations...
+        </div>
 
-                    <input type="text" class="form-control form-control-lg ps-0" placeholder="Search messages or users" aria-label="Search for messages or users...">
+        <div v-else-if="!$root.conversations.length" class="empty-conversations py-4 text-muted">
+            No conversations are available yet.
+        </div>
+
+        <div v-else-if="!filteredConversations.length" class="empty-conversations py-4 text-muted">
+            No conversations match your search.
+        </div>
+
+        <a
+            v-for="conversation in filteredConversations"
+            :key="conversation.id"
+            :href="$root.conversationUrl(conversation)"
+            class="conversation-card text-reset text-decoration-none"
+            :class="{ active: $root.conversation && $root.conversation.id === conversation.id }"
+            @click.prevent="setConversation(conversation)"
+        >
+            <img :src="$root.conversationAvatar(conversation)" :alt="$root.conversationTitle(conversation)" class="conversation-avatar">
+
+            <div class="conversation-copy min-w-0">
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <h3 class="conversation-title mb-0 text-truncate">{{ $root.conversationTitle(conversation) }}</h3>
+                    <span v-if="conversation.last_message?.created_at" class="conversation-time text-muted small ms-auto">
+                        {{ $root.moment(conversation.last_message.created_at).fromNow() }}
+                    </span>
                 </div>
-            </form>
-        </div>
 
-        <!-- Chats -->
-        <div class="card-list" id="chat-list">
-            <a v-for="conversation in $root.conversations" v-bind:key="conversation.id" v-bind:href="'#' + conversation.id" @click.prevent="setConversation(conversation)" class="card border-0 text-reset">
-                <div class="card-body">
-                    <div class="row gx-5">
-                        <div class="col-auto">
-                            <div class="avatar" :class="{'avatar-online': conversation.participants[0].isOnline}">
-                                <img v-bind:src="conversation.participants[0].avatar_url">
-                            </div>
-                        </div>
+                <p class="conversation-presence text-muted small mb-1">
+                    {{ $root.conversationPresence(conversation) }}
+                </p>
 
-                        <div class="col">
-                            <div class="d-flex align-items-center mb-3">
-                                <h5 class="me-auto mb-0">{{ conversation.participants[0].name }}</h5>
-                                <span class="text-muted extra-small ms-2">{{ $root.moment(conversation.last_message.created_at).fromNow() }}</span>
-                            </div>
-
-                            <div class="d-flex align-items-center">
-                                <div class="line-clamp me-auto">
-                                    {{ conversation.last_message.type == 'attachment'? conversation.last_message.body.file_name : conversation.last_message.body }}
-                                </div>
-                                <div v-if="conversation.new_messages" class="badge badge-circle bg-primary ms-5">
-                                    <span>{{ conversation.new_messages }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- .card-body -->
-            </a>
-        </div>
-        <!-- Chats -->
+                <div class="d-flex align-items-center gap-3">
+                    <p class="conversation-preview mb-0 text-truncate">
+                        {{ $root.conversationPreview(conversation) }}
+                    </p>
+                    <span v-if="conversation.new_messages" class="badge rounded-pill bg-primary ms-auto">
+                        {{ conversation.new_messages }}
+                    </span>
+                </div>
+            </div>
+        </a>
     </div>
 </template>
 
 <script>
-import { onMounted } from '@vue/runtime-core';
 export default {
-    data() {
-        return {
-        };
+    computed: {
+        filteredConversations() {
+            return this.$root.conversations.filter((conversation) => this.$root.conversationMatchesQuery(conversation));
+        },
     },
     methods: {
         setConversation(conversation) {
-            this.$root.conversation = conversation
-            this.$root.markAsRead(conversation);
-        }
+            this.$root.selectConversation(conversation);
+        },
     },
-    mounted () {
-        fetch('/api/conversations')
-            .then(response => response.json())
-            .then(json => {
-                for (let i in json.data) {
-                    json.data[i].participants[0].isOnline = false;
-                }
-                this.$root.conversations = json.data;
-            })
-    }
-}
+};
 </script>
+
+<style scoped>
+.chat-list-shell {
+    min-height: 0;
+}
+
+.conversation-card {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 0.95rem;
+    align-items: center;
+    padding: 1rem;
+    margin-top: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 1.25rem;
+    background: #ffffff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.conversation-card:hover,
+.conversation-card.active {
+    transform: translateY(-1px);
+    border-color: rgba(14, 165, 233, 0.36);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 20px 36px rgba(15, 23, 42, 0.08);
+}
+
+.conversation-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    object-fit: cover;
+}
+
+.conversation-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.conversation-time,
+.conversation-presence {
+    color: #64748b !important;
+}
+
+.conversation-preview {
+    color: #334155;
+    font-size: 0.96rem;
+    line-height: 1.55;
+}
+</style>
